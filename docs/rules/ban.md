@@ -2,80 +2,72 @@
 title: "@lostofthought/ban-types-in-stage/ban"
 ---
 
-# Ban Types/Values in Stage (`@lostofthought/ban-types-in-stage/ban`)
+# Ban types/values from a specific stage (`@lostofthought/ban-types-in-stage/ban`)
 
 Disallow using types/values that are defined in specific files for a given stage.
 
-This rule is primarily intended for use with [typed-factorio](https://github.com/GlassBricks/typed-factorio) when developing a Factorio mod with multiple [Factorio API stages](https://lua-api.factorio.com/latest/) (`settings`, `prototype`, `runtime`) in the same TypeScript project.
-
-When using `typed-factorio`, it's common to include types for multiple stages in your `tsconfig.json` (e.g., `"types": ["typed-factorio/prototype", "typed-factorio/runtime"]`). This makes all globals from all specified stages available everywhere, which can lead to accidentally using a `runtime`-only API in the `prototype` stage, and vice-versa. This rule prevents such mistakes.
+This rule is useful when you have a single TypeScript project that contains code for different "stages" or environments (e.g., `settings`, `prototype`, and `runtime` in Factorio mods; or `frontend` and `backend` in a web app) and you want to prevent code from one stage from being used in another.
 
 ## Rule Details
 
-This rule analyzes the origin of identifiers (variables, types, etc.) and reports an error if they are imported or defined in a file or module that is "banned" for the current file's stage.
+This rule works by analyzing your `import` and `require` statements, as well as global types. When it encounters a type or value, it traces it back to its origin file. If that file is located in a path that you have banned for the current file's stage, it will report an error.
 
-Examples of **incorrect** code for the `data` (prototype) stage:
+The rule requires typed linting to be configured.
 
-```typescript
-// data-stage-file.ts
+Examples of **incorrect** code for this rule:
 
-// Incorrect: script is a runtime-only global
-script.on_event(defines.events.on_tick, () => {});
-
-// Incorrect: LuaEntity is a runtime-only type
-const myEntity: LuaEntity = game.get_player(1)!.character!;
-```
-
-Examples of **correct** code for the `data` (prototype) stage:
-
-```typescript
-// data-stage-file.ts
-
-// Correct: data is a prototype-stage global
-data.extend([
-  {
-    type: "item",
-    name: "my-item",
-    // ...
-  },
-]);
-```
-
-## Options
-
-This rule has two required options in an object:
-
-- `currentStage` (`string`): The name of the stage for the files being linted. This is used in the error message.
-- `bannedPaths` (`string[]`): A list of paths that are not allowed to be used in this stage. Paths can be:
-  - Bare module specifiers (e.g., `"typed-factorio/runtime"`). The rule will also handle `@types/` packages correctly.
-  - Relative paths from the project root (e.g., `"./src/control"`).
-
-### Example Configuration
-
-Here is an example configuration for a `data` stage directory in an `eslint.config.js` file:
+With the following configuration in your `eslint.config.js`:
 
 ```javascript
 // eslint.config.js
 export default [
+  /* ...
+    parser setup
+  ... */
   {
-    files: ["src/data/**/*.ts"],
+    files: ['src/frontend/**/*.ts'],
     rules: {
-      "@lostofthought/ban-types-in-stage/ban": [
-        "error",
-        {
-          currentStage: "data",
-          bannedPaths: [
-            "typed-factorio/runtime", // from typed-factorio
-            "typed-factorio/settings",
-            "./src/control", // from your own code
-          ],
-        },
-      ],
+      '@lostofthought/ban-types-in-stage/ban': ['error', {
+        bannedPaths: ['src/backend', 'node-pty'],
+        currentStage: 'frontend',
+      }],
     },
   },
 ];
 ```
 
-## When Not To Use It
+The following code in `src/frontend/index.ts` would be an error:
 
-You should not use this rule if your project does not have strict separations between parts of your codebase that have different available APIs, such as a Factorio mod. If you are not developing for an environment with stages like Factorio's, this rule will likely not be useful.
+```typescript
+// src/frontend/index.ts
+import { someBackendFunction } from '../backend/utils'; // Error: '../backend/utils' is in a banned path 'src/backend'
+import * as pty from 'node-pty'; // Error: 'node-pty' is a banned module
+
+function doSomething() {
+  someBackendFunction();
+}
+```
+
+Examples of **correct** code for this rule:
+
+Using the same configuration as above, the following is allowed:
+
+```typescript
+// src/frontend/index.ts
+import { someFrontendFunction } from './utils';
+
+function doSomething() {
+  someFrontendFunction();
+}
+```
+
+## Options
+
+The rule takes one argument, an object with the following properties:
+
+- `bannedPaths` (`string[]`): An array of paths or modules to ban in the current stage.
+  - **Path**: A relative path (from the project root) to a directory or file. Any import that resolves to this path or a sub-path will be banned. Example: `src/backend`.
+  - **Module**: The name of an npm package. Any import from this module will be banned. Example: `node-pty`.
+- `currentStage` (`string`): The name of the current stage. This is used in the error message to provide context. Example: `frontend`.
+
+This rule is intended to be used in a configuration that applies it with different options to different parts of your project, as shown in the example above and in the main `README.md`.

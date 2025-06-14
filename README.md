@@ -2,13 +2,9 @@
 
 An ESLint plugin to prevent the usage of types and values from one programming "stage" in another.
 
-This plugin is primarily intended for use with [typed-factorio](https://github.com/GlassBricks/typed-factorio) when developing a Factorio mod with multiple [Factorio API stages](https://lua-api.factorio.com/latest/) (`settings`, `prototype`, `runtime`) in the same TypeScript project.
-
-When using `typed-factorio`, it's common to include types for multiple stages in your `tsconfig.json` (e.g., `"types": ["typed-factorio/prototype", "typed-factorio/runtime"]`). This makes all globals from all specified stages available everywhere, which can lead to accidentally using a `runtime`-only API in the `prototype` stage, and vice-versa. This plugin provides a rule to prevent such mistakes.
+This plugin is primarily intended for use with [typed-factorio](https://github.com/GlassBricks/typed-factorio) when developing a Factorio mod with multiple [Factorio API stages](https://lua-api.factorio.com/latest/) (`settings`, `prototype`, `runtime`) in the same TypeScript project without seperate `tsconfig.json` files.
 
 ## Installation and Setup
-
-This plugin relies on **typed linting**, which requires a specific setup to grant ESLint access to your project's TypeScript type information.
 
 **1. Install Dependencies**
 
@@ -20,7 +16,7 @@ pnpm add -D eslint typescript @typescript-eslint/parser @lostofthought/eslint-pl
 
 **2. Configure ESLint**
 
-To get everything working, you need to configure the TypeScript parser and then add the plugin's recommended configuration. Here is a complete `eslint.config.js` example:
+To get everything working, you need to configure the TypeScript parser and then add the plugin. Here is a complete `eslint.config.js` example:
 
 ```javascript
 // eslint.config.js
@@ -41,20 +37,81 @@ export default [
     },
   },
 
-  // Add the plugin's recommended configuration for Factorio development.
-  // This assumes a directory structure like:
-  // - src/control/ for runtime files
-  // - src/data/ for prototype files
-  // - src/settings/ for settings files
-  ...banTypesInStagePlugin.configs.factorio,
+  // The plugin has pre-built configurations. For Factorio mods, it is recommended
+  // to use the 'factorio' config, which assumes this structure:
+  // - `src/control/` for runtime files
+  // - `src/data/` for prototype files
+  // - `src/settings/` for settings files
+  //
+  // To use it, uncomment this line:
+  // ...banTypesInStagePlugin.configs.factorio,
+
+  // For other project structures or for non-Factorio projects, configure the rule manually.
+  // First, register the plugin:
+  {
+    plugins: {
+      '@lostofthought/ban-types-in-stage': banTypesInStagePlugin,
+    },
+  },
+
+  // Then, configure the rule for each "stage" of your project. For example,
+  // to prevent backend code from being imported into the frontend:
+  {
+    // Ban backend code in frontend files
+    files: ['src/frontend/**/*.ts'],
+    rules: {
+      '@lostofthought/ban-types-in-stage/ban': ['error', {
+        bannedPaths: ['src/backend'],
+        currentStage: 'frontend',
+      }],
+    },
+  },
+  {
+    // Ban frontend code in backend files
+    files: ['src/backend/**/*.ts'],
+    rules: {
+      '@lostofthought/ban-types-in-stage/ban': ['error', {
+        bannedPaths: ['src/frontend'],
+        currentStage: 'backend',
+      }],
+    },
+  },
 ];
 ```
 
-For more details on typed linting, see the [typescript-eslint documentation](https://typescript-eslint.io/getting-started/typed-linting).
+When using the `factorio` config ruleset, you must configure your `tsconfig.json` to include the types for all Factorio stages. By loading all types, TypeScript becomes aware of all stage-specific definitions, which allows this ESLint plugin to correctly identify and restrict their usage in the appropriate files.
 
-## Usage
+```jsonc
+{
+  "compilerOptions": {
+    "types": [
+      "typed-factorio/settings",
+      "typed-factorio/prototype",
+      "typed-factorio/runtime"
+    ]
+  },
 
-Once installed and configured, ESLint will automatically use this plugin to check your code. No further steps are needed.
+  "tstl": {
+    "buildMode": "library",
+    "extension": ".lua",
+    "luaTarget": "5.2",
+    "noImplicitGlobalVariables": true,
+    "noImplicitSelf": true,
+    "noHeader": true,
+    "lua51AllowTryCatchInAsyncAwait": false,
+    "luaLibImport": "require-minimal",
+    "sourceMapTraceback": true,
+    "luaPlugins": [],
+    "tstlVerbose": true,
+    "noResolvePaths": []
+  },
+  
+  "include": [
+    "./src/**/*.ts",
+    "./src/**/*.tsx"
+  ]
+}
+```
 
 ## Rules
 
