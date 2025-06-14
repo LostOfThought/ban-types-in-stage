@@ -30,6 +30,14 @@
   ],
   "author": "Ryan \"LostOfThought\" Wright",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LostOfThought/ban-types-in-stage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LostOfThought/ban-types-in-stage/issues"
+  },
+  "homepage": "https://github.com/LostOfThought/ban-types-in-stage#readme",
   "devDependencies": {
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
