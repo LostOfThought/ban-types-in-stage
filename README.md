@@ -62,6 +62,10 @@ This plugin exports one rule:
 
 - [`@lostofthought/ban-types-in-stage/ban`](./docs/rules/ban.md): Disallow using types/values that are defined in specific files for a given stage.
 
+## Contributing
+
+This project uses `semantic-release` for automated versioning and releases. Please follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for your commit messages.
+
 ## License
 
 MIT
